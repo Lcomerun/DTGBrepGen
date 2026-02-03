@@ -377,6 +377,26 @@ def get_grapharm_topology(batch: int, model: GraphARMTopologyModel, device: torc
     Returns:
         Dictionary with topology data
     """
+    # Create a lightweight generator instance with pre-loaded model
+    class LightweightGenerator:
+        def __init__(self, model, device, args):
+            self.model = model
+            self.device = device
+            self.args = args
+        
+        def generate_fef_adj(self, num_samples, num_faces=None, class_label=None, point_data=None):
+            with torch.no_grad():
+                return self.model.sample(
+                    num_samples=num_samples,
+                    num_faces=num_faces,
+                    class_label=class_label,
+                    point_data=point_data
+                )
+    
+    # Use lightweight generator for the actual generation
+    lightweight_gen = LightweightGenerator(model, device, args)
+    
+    # Create a proper generator instance for topology building methods
     generator = GraphARMTopologyGenerator.__new__(GraphARMTopologyGenerator)
     generator.device = device
     generator.model = model

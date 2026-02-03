@@ -11,6 +11,7 @@ reverse process generates nodes in the learned order.
 """
 
 import math
+import pickle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -381,8 +382,8 @@ class GraphARMTopologyModel(nn.Module):
         
         if use_pc:
             from model import PointNet2SSG
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            self.pointModel = PointNet2SSG(in_dim=3, out_dim=hidden_dim).to(device)
+            # PointNet will be moved to appropriate device during forward pass
+            self.pointModel = PointNet2SSG(in_dim=3, out_dim=hidden_dim)
         
         # Cache for sampling
         self.cache = {}
@@ -607,9 +608,7 @@ class GraphARMDataset(torch.utils.data.Dataset):
         return len(self.data)
     
     def __getitem__(self, idx):
-        import pickle
         from utils import pad_zero
-        from topology.transfer import fef_from_faceEdge
         
         with open(self.data[idx], "rb") as tf:
             data = pickle.load(tf)

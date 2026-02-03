@@ -43,8 +43,10 @@ def main():
         if not hasattr(args, key):
             setattr(args, key, value)
     
-    # Add GraphARM model config
-    if not hasattr(args, 'GraphARMModel'):
+    # GraphARM model config should come from config.yaml
+    # Only set defaults if not present (for backwards compatibility)
+    if not hasattr(args, 'GraphARMModel') or args.GraphARMModel is None:
+        print("Warning: GraphARMModel config not found in config.yaml, using defaults")
         args.GraphARMModel = {
             'hidden_dim': 256,
             'num_layers': 6,

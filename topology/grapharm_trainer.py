@@ -223,8 +223,6 @@ class GraphARMTrainer:
 
 def create_grapharm_datasets(args):
     """Create training and validation datasets for GraphARM."""
-    from utils import load_data_with_prefix
-    
     train_path = os.path.join('data_process/TopoDatasets', args.name, 'train')
     test_path = os.path.join('data_process/TopoDatasets', args.name, 'test')
     

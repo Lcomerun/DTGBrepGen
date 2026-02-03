@@ -13,6 +13,35 @@ DTGBrepGen is a novel framework for automatically generating valid and high-qual
 - 🎯 **B-spline Representations:** Learns **B-spline control points** for precise and compact geometric modeling.  
 - 📊 **Strong Validity & Accuracy:** Ensures high **topological validity** and **geometric accuracy**, surpassing existing methods on CAD datasets.  
 
+## GraphARM: Graph-based Autoregressive Topology Generation (New!)
+
+This repository now includes an alternative topology generation approach based on **GraphARM** (Autoregressive Diffusion Model for Graph Generation). This combines the graph-based diffusion approach with BrepGen-style geometry generation.
+
+### Key Differences from Original DTGBrepGen:
+
+| Aspect | DTGBrepGen | GraphARM Version |
+|--------|------------|------------------|
+| **Topology Generation** | Sequential VAE (sequence-based) | Graph Autoregressive Diffusion |
+| **Node Ordering** | Manually designed heuristics | Learned ordering via DON |
+| **Graph Processing** | Sequence → adjacency matrix | Direct graph space operations |
+| **Structure Awareness** | Limited (sequence-based) | Strong (GNN-based) |
+
+### GraphARM Components:
+
+1. **Diffusion Ordering Network (DON)**: Learns optimal node generation order
+2. **Denoising Network**: GNN-based prediction of masked nodes and edges
+3. **Absorbing State Diffusion**: Masks nodes one-by-one in forward, generates in reverse
+
+### Training GraphARM Topology:
+```bash
+python -m topology.train_grapharm --name furniture --train_epochs 2000
+```
+
+### Generating with GraphARM:
+```bash
+python -m inference.generate_grapharm --name furniture --num_samples 10
+```
+
 
 ### Dependencies
 
