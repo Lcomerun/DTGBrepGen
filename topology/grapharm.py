@@ -199,7 +199,8 @@ class DenoisingNetwork(nn.Module):
     2. Edge connections between masked and existing nodes
     """
     def __init__(self, node_dim, edge_dim, hidden_dim=256, num_layers=6, 
-                 num_heads=8, num_node_types=1, num_edge_types=5, dropout=0.1):
+                 num_heads=8, num_node_types=1, num_edge_types=5, dropout=0.1,
+                 max_positions=64):
         super().__init__()
         
         self.node_dim = node_dim
@@ -207,6 +208,7 @@ class DenoisingNetwork(nn.Module):
         self.hidden_dim = hidden_dim
         self.num_node_types = num_node_types
         self.num_edge_types = num_edge_types
+        self.max_positions = max_positions
         
         # Special tokens
         self.mask_token = nn.Parameter(torch.randn(hidden_dim))
@@ -222,8 +224,8 @@ class DenoisingNetwork(nn.Module):
         # Edge type embedding
         self.edge_type_embed = nn.Embedding(num_edge_types + 1, hidden_dim)  # +1 for no-edge
         
-        # Position embedding for faces
-        self.pos_embed = nn.Embedding(64, hidden_dim)  # Max 64 faces
+        # Position embedding for faces (configurable max positions)
+        self.pos_embed = nn.Embedding(max_positions, hidden_dim)
         
         # Transformer encoder layers
         encoder_layer = nn.TransformerEncoderLayer(
@@ -297,9 +299,9 @@ class DenoisingNetwork(nn.Module):
         mask_expanded = masked_nodes.unsqueeze(-1).expand_as(h)
         h = torch.where(mask_expanded, self.mask_token.unsqueeze(0).unsqueeze(0).expand_as(h), h)
         
-        # Add position embedding
+        # Add position embedding (clamp to max embedding size)
         pos_ids = torch.arange(num_nodes, device=device).unsqueeze(0).expand(batch_size, -1)
-        pos_ids = torch.clamp(pos_ids, 0, 63)  # Clamp to max embedding size
+        pos_ids = torch.clamp(pos_ids, 0, self.max_positions - 1)
         h = h + self.pos_embed(pos_ids)
         
         # Add time embedding
@@ -364,7 +366,8 @@ class GraphARMTopologyModel(nn.Module):
             dropout=dropout
         )
         
-        # Denoising network
+        # Denoising network - use max_faces + 32 as buffer for position embeddings
+        max_positions = max(max_faces + 32, 64)
         self.denoising_net = DenoisingNetwork(
             node_dim=node_dim,
             edge_dim=edge_dim,
@@ -373,7 +376,8 @@ class GraphARMTopologyModel(nn.Module):
             num_heads=num_heads,
             num_node_types=1,  # Binary: face exists or not
             num_edge_types=edge_classes,
-            dropout=dropout
+            dropout=dropout,
+            max_positions=max_positions
         )
         
         # Conditional embeddings

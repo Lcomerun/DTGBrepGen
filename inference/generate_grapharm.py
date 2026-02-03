@@ -103,6 +103,9 @@ def get_faceBbox(fef_adj, model, pndm_scheduler, ddpm_scheduler, class_label, po
     Generate face bounding boxes using diffusion.
     
     This is the same as in the original DTGBrepGen.
+    
+    Note: Import is deferred to avoid loading heavy dependencies (OCC, etc.)
+    when only using the GraphARM topology module.
     """
     from inference.generate import get_faceBbox as original_get_faceBbox
     return original_get_faceBbox(fef_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data)
@@ -114,6 +117,9 @@ def get_vertGeom(vertFace_adj, face_bbox, vertVert_adj, model, pndm_scheduler,
     Generate vertex geometry using diffusion.
     
     This is the same as in the original DTGBrepGen.
+    
+    Note: Import is deferred to avoid loading heavy dependencies (OCC, etc.)
+    when only using the GraphARM topology module.
     """
     from inference.generate import get_vertGeom as original_get_vertGeom
     return original_get_vertGeom(vertFace_adj, face_bbox, vertVert_adj, model, 
@@ -126,6 +132,9 @@ def get_edgeGeom(edgeFace_bbox, edgeVert_geom, edge_mask, model, pndm_scheduler,
     Generate edge geometry using diffusion.
     
     This is the same as in the original DTGBrepGen.
+    
+    Note: Import is deferred to avoid loading heavy dependencies (OCC, etc.)
+    when only using the GraphARM topology module.
     """
     from inference.generate import get_edgeGeom as original_get_edgeGeom
     return original_get_edgeGeom(edgeFace_bbox, edgeVert_geom, edge_mask, model,
@@ -138,6 +147,9 @@ def get_faceGeom(face_bbox, faceVert_geom, faceEdge_geom, face_mask, faceVert_ma
     Generate face geometry using diffusion.
     
     This is the same as in the original DTGBrepGen.
+    
+    Note: Import is deferred to avoid loading heavy dependencies (OCC, etc.)
+    when only using the GraphARM topology module.
     """
     from inference.generate import get_faceGeom as original_get_faceGeom
     return original_get_faceGeom(face_bbox, faceVert_geom, faceEdge_geom, face_mask,

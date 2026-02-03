@@ -69,7 +69,9 @@ class GraphARMTrainer:
             self.optimizer, T_max=args.train_epochs, eta_min=1e-6
         )
         
-        self.scaler = torch.cuda.amp.GradScaler()
+        # Mixed precision training (only on CUDA)
+        self.use_amp = self.device.type == 'cuda'
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
     
     def train_one_epoch(self):
         """Train for one epoch."""
@@ -87,7 +89,8 @@ class GraphARMTrainer:
         num_batches = 0
         
         for data in self.train_dataloader:
-            with torch.cuda.amp.autocast():
+            # Use autocast for mixed precision training (device-agnostic)
+            with torch.amp.autocast(device_type=self.device.type, enabled=self.use_amp):
                 data = [x.to(self.device) for x in data]
                 
                 if self.use_cf and self.use_pc:

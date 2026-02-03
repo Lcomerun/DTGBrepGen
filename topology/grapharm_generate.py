@@ -136,8 +136,11 @@ class GraphARMTopologyGenerator:
         num_edges = edgeFace_adj.shape[0]
         num_faces = len(faceEdge_adj)
         
-        # Try multiple random orderings for robustness
-        for attempt in range(20):
+        # Try multiple random orderings for robustness.
+        # 20 attempts balances computational cost vs success rate for typical B-rep topologies.
+        # Complex topologies may still fail and need regeneration at the sample level.
+        max_ordering_attempts = 20
+        for attempt in range(max_ordering_attempts):
             # Initialize vertex assignment
             # Each edge has 2 "corners" (2*edge_id and 2*edge_id+1)
             # We need to merge corners that share the same vertex
