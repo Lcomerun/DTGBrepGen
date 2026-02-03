@@ -114,11 +114,14 @@ class GraphARMTopologyGenerator:
         """
         Generate edge-vertex adjacency that satisfies topological constraints.
         
-        This implements a constraint satisfaction approach to assign vertices
+        This uses a randomized constraint satisfaction approach to assign vertices
         to edges such that:
         1. Each edge connects exactly 2 vertices
         2. Each face forms a closed loop
         3. Adjacent edges share vertices
+        
+        The algorithm uses random edge ordering within each face to create valid
+        closed loops, with multiple attempts for robustness.
         
         Args:
             edgeFace_adj: Edge to face mapping [num_edges, 2]
@@ -127,81 +130,150 @@ class GraphARMTopologyGenerator:
         Returns:
             edgeVert_adj: Edge to vertex mapping [num_edges, 2] or None if failed
         """
+        import random
+        from collections import defaultdict
+        
         num_edges = edgeFace_adj.shape[0]
         num_faces = len(faceEdge_adj)
         
-        # Initialize vertex assignment
-        # Each edge has 2 "corners" (2*edge_id and 2*edge_id+1)
-        # We need to merge corners that share the same vertex
-        vert_flag = np.arange(2 * num_edges)  # Each corner starts as its own vertex
-        set_flag = {i: {i} for i in range(2 * num_edges)}
-        
-        def find_set(v):
-            return vert_flag[v]
-        
-        def merge_sets(v1, v2):
-            s1, s2 = find_set(v1), find_set(v2)
-            if s1 == s2:
+        # Try multiple random orderings for robustness
+        for attempt in range(20):
+            # Initialize vertex assignment
+            # Each edge has 2 "corners" (2*edge_id and 2*edge_id+1)
+            # We need to merge corners that share the same vertex
+            vert_flag = np.arange(2 * num_edges)
+            set_flag = {i: {i} for i in range(2 * num_edges)}
+            
+            def find_set(v):
+                return vert_flag[v]
+            
+            def check_merge_constraint(v1, v2):
+                """Check if merging v1 and v2 violates constraints."""
+                s1, s2 = find_set(v1), find_set(v2)
+                if s1 == s2:
+                    return True
+                
+                merged = set_flag[s1] | set_flag[s2]
+                
+                # Check: two corners of same edge can't merge
+                for c in merged:
+                    if c % 2 == 0 and (c + 1) in merged:
+                        return False
+                    if c % 2 == 1 and (c - 1) in merged:
+                        return False
+                
+                # Check: at most 2 corners on same face can merge into one vertex
+                face_count = defaultdict(int)
+                for c in merged:
+                    edge_idx = c // 2
+                    for face in edgeFace_adj[edge_idx]:
+                        face_count[face] += 1
+                        if face_count[face] > 2:
+                            return False
+                
                 return True
             
-            # Check constraint: two corners of same edge can't merge
-            merged = set_flag[s1] | set_flag[s2]
-            for c in merged:
-                if c % 2 == 0 and (c + 1) in merged:
+            def merge_verts(v1, v2):
+                """Merge two vertices/corners."""
+                s1, s2 = find_set(v1), find_set(v2)
+                if s1 == s2:
+                    return True
+                
+                if not check_merge_constraint(v1, v2):
                     return False
-                if c % 2 == 1 and (c - 1) in merged:
-                    return False
+                
+                # Merge smaller into larger
+                if len(set_flag[s1]) < len(set_flag[s2]):
+                    s1, s2 = s2, s1
+                
+                set_flag[s1].update(set_flag[s2])
+                for c in set_flag[s2]:
+                    vert_flag[c] = s1
+                del set_flag[s2]
+                return True
             
-            # Merge smaller set into larger
-            if len(set_flag[s1]) < len(set_flag[s2]):
-                s1, s2 = s2, s1
+            success = True
             
-            set_flag[s1].update(set_flag[s2])
-            for c in set_flag[s2]:
-                vert_flag[c] = s1
-            del set_flag[s2]
-            return True
-        
-        # Process each face to create closed loops
-        for face_id, face_edges in enumerate(faceEdge_adj):
-            if len(face_edges) < 2:
+            # Process each face to create closed loops
+            for face_id, face_edges in enumerate(faceEdge_adj):
+                if len(face_edges) < 2:
+                    continue
+                
+                # Shuffle edge order for randomization
+                edges_shuffled = face_edges.copy()
+                random.shuffle(edges_shuffled)
+                
+                # Build a chain by connecting edges
+                chain = [edges_shuffled[0]]
+                remaining = set(edges_shuffled[1:])
+                
+                # Use corners: each edge has two corners (2*e, 2*e+1)
+                # Track which corner at each end of the chain
+                chain_start_corner = 2 * chain[0]
+                chain_end_corner = 2 * chain[0] + 1
+                
+                while remaining:
+                    found = False
+                    edges_to_try = list(remaining)
+                    random.shuffle(edges_to_try)
+                    
+                    for next_edge in edges_to_try:
+                        # Try connecting at the end
+                        for next_corner in [2 * next_edge, 2 * next_edge + 1]:
+                            if check_merge_constraint(chain_end_corner, next_corner):
+                                merge_verts(chain_end_corner, next_corner)
+                                chain.append(next_edge)
+                                chain_end_corner = (2 * next_edge) if next_corner == (2 * next_edge + 1) else (2 * next_edge + 1)
+                                remaining.remove(next_edge)
+                                found = True
+                                break
+                        if found:
+                            break
+                        
+                        # Try connecting at the start
+                        for next_corner in [2 * next_edge, 2 * next_edge + 1]:
+                            if check_merge_constraint(chain_start_corner, next_corner):
+                                merge_verts(chain_start_corner, next_corner)
+                                chain.insert(0, next_edge)
+                                chain_start_corner = (2 * next_edge) if next_corner == (2 * next_edge + 1) else (2 * next_edge + 1)
+                                remaining.remove(next_edge)
+                                found = True
+                                break
+                        if found:
+                            break
+                    
+                    if not found:
+                        success = False
+                        break
+                
+                if not success:
+                    break
+                
+                # Close the loop by connecting start and end
+                if len(chain) >= 2:
+                    if not merge_verts(chain_start_corner, chain_end_corner):
+                        success = False
+                        break
+            
+            if not success:
                 continue
             
-            # Connect consecutive edges in the face loop
-            for i in range(len(face_edges)):
-                edge1 = face_edges[i]
-                edge2 = face_edges[(i + 1) % len(face_edges)]
-                
-                # Try to find a valid corner pairing
-                corners1 = [2 * edge1, 2 * edge1 + 1]
-                corners2 = [2 * edge2, 2 * edge2 + 1]
-                
-                merged = False
-                for c1 in corners1:
-                    for c2 in corners2:
-                        if merge_sets(c1, c2):
-                            merged = True
-                            break
-                    if merged:
-                        break
+            # Build edgeVert_adj from final vertex assignments
+            unique_sets = list(set_flag.keys())
+            vert_map = {s: i for i, s in enumerate(unique_sets)}
+            
+            edgeVert_adj = np.zeros((num_edges, 2), dtype=np.int64)
+            for e in range(num_edges):
+                c1, c2 = 2 * e, 2 * e + 1
+                v1 = vert_map[find_set(c1)]
+                v2 = vert_map[find_set(c2)]
+                edgeVert_adj[e] = [v1, v2]
+            
+            # Verify topology
+            if self._verify_topology(edgeVert_adj, faceEdge_adj):
+                return edgeVert_adj
         
-        # Build edgeVert_adj from final vertex assignments
-        # Renumber vertices to be consecutive
-        unique_sets = list(set_flag.keys())
-        vert_map = {s: i for i, s in enumerate(unique_sets)}
-        
-        edgeVert_adj = np.zeros((num_edges, 2), dtype=np.int64)
-        for e in range(num_edges):
-            c1, c2 = 2 * e, 2 * e + 1
-            v1 = vert_map[find_set(c1)]
-            v2 = vert_map[find_set(c2)]
-            edgeVert_adj[e] = [v1, v2]
-        
-        # Verify topology
-        if not self._verify_topology(edgeVert_adj, faceEdge_adj):
-            return None
-        
-        return edgeVert_adj
+        return None
     
     def _verify_topology(self, edgeVert_adj: np.ndarray, 
                          faceEdge_adj: List[List[int]]) -> bool:
@@ -407,3 +479,119 @@ def get_grapharm_topology(batch: int, model: GraphARMTopologyModel, device: torc
         class_labels=labels,
         point_data=point_data
     )
+
+
+def validate_topology_data(topo_data: Dict, verbose: bool = True) -> Tuple[bool, List[str]]:
+    """
+    Validate the generated topology data for consistency and correctness.
+    
+    This function checks:
+    1. All required keys are present
+    2. Data shapes are consistent
+    3. Topological constraints are satisfied
+    
+    Args:
+        topo_data: Dictionary from get_grapharm_topology or generate_full_topology
+        verbose: Whether to print validation messages
+    
+    Returns:
+        (is_valid, errors): Tuple of validation result and list of error messages
+    """
+    errors = []
+    
+    # Check required keys
+    required_keys = ['edgeVert_adj', 'edgeFace_adj', 'faceEdge_adj', 'vertFace_adj', 'fef_adj']
+    for key in required_keys:
+        if key not in topo_data:
+            errors.append(f"Missing required key: {key}")
+    
+    if errors:
+        return False, errors
+    
+    num_samples = len(topo_data['fef_adj'])
+    if verbose:
+        print(f"Validating {num_samples} topology samples...")
+    
+    for i in range(num_samples):
+        sample_errors = []
+        
+        try:
+            fef_adj = topo_data['fef_adj'][i]
+            edgeFace_adj = topo_data['edgeFace_adj'][i]
+            faceEdge_adj = topo_data['faceEdge_adj'][i]
+            edgeVert_adj = topo_data['edgeVert_adj'][i]
+            vertFace_adj = topo_data['vertFace_adj'][i]
+            
+            # Convert to numpy if needed
+            if isinstance(fef_adj, torch.Tensor):
+                fef_adj = fef_adj.cpu().numpy()
+            if isinstance(edgeFace_adj, torch.Tensor):
+                edgeFace_adj = edgeFace_adj.cpu().numpy()
+            if isinstance(edgeVert_adj, torch.Tensor):
+                edgeVert_adj = edgeVert_adj.cpu().numpy()
+            
+            # Basic counts
+            num_faces = len(faceEdge_adj)
+            num_edges = len(edgeFace_adj)
+            num_verts = edgeVert_adj.max() + 1 if len(edgeVert_adj) > 0 else 0
+            
+            # Check: fef_adj should be symmetric
+            if not np.allclose(fef_adj, fef_adj.T):
+                sample_errors.append("fef_adj not symmetric")
+            
+            # Check: two vertices on same edge must be different
+            if len(edgeVert_adj) > 0:
+                if not np.all(edgeVert_adj[:, 0] != edgeVert_adj[:, 1]):
+                    sample_errors.append("Edge has same vertex at both ends")
+            
+            # Check: each edge connects two faces
+            for edge_idx, (f1, f2) in enumerate(edgeFace_adj):
+                if f1 == f2:
+                    sample_errors.append(f"Edge {edge_idx} connects face to itself")
+            
+            # Check: faceEdge is consistent with edgeFace
+            for face_id, face_edges in enumerate(faceEdge_adj):
+                for edge_id in face_edges:
+                    if edge_id >= num_edges:
+                        sample_errors.append(f"Face {face_id} has invalid edge {edge_id}")
+                    else:
+                        f1, f2 = edgeFace_adj[edge_id]
+                        if face_id != f1 and face_id != f2:
+                            sample_errors.append(f"Edge {edge_id} not adjacent to face {face_id}")
+            
+            # Check: edges per face equals vertices per face (closed loop)
+            for face_id, face_edges in enumerate(faceEdge_adj):
+                face_verts = set()
+                for e in face_edges:
+                    if e < len(edgeVert_adj):
+                        face_verts.update(edgeVert_adj[e])
+                if len(face_edges) != len(face_verts):
+                    sample_errors.append(f"Face {face_id}: edges={len(face_edges)}, verts={len(face_verts)}")
+            
+            # Check: each vertex has at least 2 edges
+            if len(edgeVert_adj) > 0:
+                vert_count = np.zeros(num_verts)
+                np.add.at(vert_count, edgeVert_adj.flatten(), 1)
+                isolated = np.where(vert_count < 2)[0]
+                if len(isolated) > 0:
+                    sample_errors.append(f"Isolated vertices: {isolated.tolist()}")
+        
+        except Exception as e:
+            sample_errors.append(f"Validation error: {str(e)}")
+        
+        if sample_errors:
+            errors.append(f"Sample {i}: " + "; ".join(sample_errors))
+    
+    is_valid = len(errors) == 0
+    
+    if verbose:
+        if is_valid:
+            print(f"✓ All {num_samples} samples passed validation")
+        else:
+            print(f"✗ Validation failed with {len(errors)} errors:")
+            for error in errors[:5]:  # Print first 5 errors
+                print(f"  - {error}")
+            if len(errors) > 5:
+                print(f"  ... and {len(errors) - 5} more errors")
+    
+    return is_valid, errors
