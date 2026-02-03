@@ -185,6 +185,24 @@ def faceVert_from_edgeVert(faceEdge_adj, edgeVert_adj):
     return faceVert_adj
 
 
+def compute_vertVert_adj(edgeVert_adj):
+    """
+    Compute vertex-vertex adjacency matrix from edge-vertex adjacency.
+    
+    Args:
+        edgeVert_adj (numpy.array): [ne, 2] array, where each edge connects two vertices.
+    
+    Returns:
+        vertVert_adj (numpy.array): [nv, nv] binary adjacency matrix.
+    """
+    nv = edgeVert_adj.max() + 1
+    vertVert_adj = np.zeros((nv, nv), dtype=int)
+    for v1, v2 in edgeVert_adj:
+        vertVert_adj[v1, v2] = 1
+        vertVert_adj[v2, v1] = 1
+    return vertVert_adj
+
+
 def fef_from_faceEdge(faceEdge_adj=None, edgeFace_adj=None):
     """
     Compute the fef_adj from the given faceEdge_adj or edgeFace_adj.

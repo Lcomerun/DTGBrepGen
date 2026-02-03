@@ -54,6 +54,12 @@ furniture:
     face_geom_dim: 48
     d_model: 768
     nhead: 12
+  # GraphARM topology model configuration
+  GraphARMModel:
+    hidden_dim: 256
+    num_layers: 6
+    num_heads: 8
+    dropout: 0.1
 
 deepcad:
 
@@ -111,6 +117,12 @@ deepcad:
     face_geom_dim: 48
     d_model: 768
     nhead: 12
+  # GraphARM topology model configuration
+  GraphARMModel:
+    hidden_dim: 256
+    num_layers: 6
+    num_heads: 8
+    dropout: 0.1
 
 abc:
   # general setting
@@ -166,4 +178,9 @@ abc:
     n_layers: 8
     face_geom_dim: 48
     d_model: 768
-    nhead: 12
+    nhead: 12  # GraphARM topology model configuration
+  GraphARMModel:
+    hidden_dim: 256
+    num_layers: 6
+    num_heads: 8
+    dropout: 0.1
