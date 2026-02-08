@@ -55,3 +55,61 @@ To generate B-rep models, run:
 python -m inference.generate
 ```
 Specify the name of the dataset in the main function to generate corresponding B-rep models.
+
+---
+
+## GNN-based Topology Generation (Extended)
+
+This repository also includes an alternative approach that uses **Graph Neural Networks (GNN)** for topology generation while keeping the original DTGBrepGen geometry generation pipeline.
+
+### Architecture Overview
+
+The GNN-based approach modifies the topology generation phase:
+
+1. **Original DTGBrepGen Topology**: Uses Transformer-based VAE (FaceEdgeModel) for face-edge adjacency
+2. **GNN Topology**: Uses Graph Attention Networks (GAT) for face-edge adjacency generation
+
+The geometry generation (face bounding boxes, vertex positions, edge curves, face surfaces) remains unchanged.
+
+### GNN Model Details
+
+The `GNNTopologyGenerator` model consists of:
+- **Graph Attention Encoder**: Multi-layer GAT that learns face representations
+- **Edge Predictor**: MLP that predicts edge counts between face pairs
+- **VAE Structure**: Latent space for diverse sample generation
+
+### Training GNN Topology Model
+
+```bash
+# Train GNN topology model for specific dataset
+sh scripts/train_gnn.sh deepcad
+
+# Or manually:
+python -m topology.train_gnn_topo --name deepcad --batch_size 16 --train_epochs 2000
+```
+
+### Generating B-rep with GNN Topology
+
+```bash
+python -m inference.generate_gnn --name deepcad --num_samples 320
+```
+
+### Configuration
+
+GNN model configuration is in `config.yaml`:
+
+```yaml
+GNNTopologyModel:
+  d_model: 128    # Hidden dimension
+  n_layers: 4     # Number of GAT layers
+  n_heads: 4      # Number of attention heads
+  dropout: 0.1    # Dropout rate
+```
+
+### Why GNN for Topology?
+
+Graph Neural Networks are naturally suited for topology generation because:
+- B-rep topology is inherently a graph structure (faces as nodes, edges as connections)
+- GAT can capture complex face-face relationships through attention
+- Message passing allows global reasoning about topological constraints
+- GNN architecture explicitly respects the graph structure of B-rep models

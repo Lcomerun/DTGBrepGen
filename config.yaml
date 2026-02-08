@@ -23,6 +23,11 @@ furniture:
     nhead: 4
     n_layers: 4
     use_gat: Ture
+  GNNTopologyModel:
+    d_model: 128
+    n_layers: 4
+    n_heads: 4
+    dropout: 0.1
   EdgeVertModel:
     d_model: 256
     n_layers: 4
@@ -80,6 +85,11 @@ deepcad:
     d_model: 128
     nhead: 4
     n_layers: 4
+  GNNTopologyModel:
+    d_model: 128
+    n_layers: 4
+    n_heads: 4
+    dropout: 0.1
   EdgeVertModel:
     d_model: 256
     n_layers: 4
@@ -136,6 +146,11 @@ abc:
     d_model: 128
     nhead: 4
     n_layers: 4
+  GNNTopologyModel:
+    d_model: 128
+    n_layers: 4
+    n_heads: 4
+    dropout: 0.1
   EdgeVertModel:
     d_model: 256
     n_layers: 4
