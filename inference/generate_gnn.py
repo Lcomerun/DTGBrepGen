@@ -24,7 +24,7 @@ from model import (
     FaceGeomTransformer, EdgeGeomTransformer, VertGeomTransformer, 
     FaceBboxTransformer, EdgeVertModel
 )
-from topology.gnn_topology import GNNTopologyGenerator, get_topology_with_gnn
+from topology.gnn_topology import GNNTopologyGenerator
 from topology.topoGenerate import SeqGenerator
 from topology.transfer import faceVert_from_edgeVert, face_vert_trans, fef_from_faceEdge
 from utils import xe_mask, pad_zero, sort_bbox_multi, generate_random_string, make_mask, pad_and_stack, calculate_y
@@ -221,32 +221,6 @@ def get_topology_gnn(batch, gnn_model, edgeVert_model, device, labels, point_dat
     }
 
 
-# Import geometry generation functions from the original generate.py
-# These remain unchanged as we only modify topology generation
-def get_faceBbox(fef_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data):
-    """Generate face bounding boxes using diffusion model."""
-    from inference.generate import get_faceBbox as original_get_faceBbox
-    return original_get_faceBbox(fef_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data)
-
-
-def get_vertGeom(face_bbox, vertFace_adj, edgeVert_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data):
-    """Generate vertex geometry using diffusion model."""
-    from inference.generate import get_vertGeom as original_get_vertGeom
-    return original_get_vertGeom(face_bbox, vertFace_adj, edgeVert_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data)
-
-
-def get_edgeGeom(face_bbox, vert_geom, edgeFace_adj, edgeVert_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data):
-    """Generate edge geometry using diffusion model."""
-    from inference.generate import get_edgeGeom as original_get_edgeGeom
-    return original_get_edgeGeom(face_bbox, vert_geom, edgeFace_adj, edgeVert_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data)
-
-
-def get_faceGeom(face_bbox, edge_wcs, faceEdge_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data):
-    """Generate face geometry using diffusion model."""
-    from inference.generate import get_faceGeom as original_get_faceGeom
-    return original_get_faceGeom(face_bbox, edge_wcs, faceEdge_adj, model, pndm_scheduler, ddpm_scheduler, class_label, point_data)
-
-
 def brep_generate_gnn(name, num_sample=320, batch_size=64):
     """
     Main function for B-rep generation using GNN topology.
@@ -343,6 +317,9 @@ def brep_generate_gnn(name, num_sample=320, batch_size=64):
             continue
         
         # Step 2: Generate face bounding boxes
+        # Import geometry generation functions directly from original generate.py
+        from inference.generate import get_faceBbox
+        
         print("[Step 2/5] Generating face bounding boxes...")
         face_bbox, face_mask = get_faceBbox(
             topo_data['fef_adj'], faceBbox_model, 
